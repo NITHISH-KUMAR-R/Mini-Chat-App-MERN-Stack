@@ -27,13 +27,13 @@ const userLogin=async ( req, res ) => {
         //console.log( userDb.password )
         if ( !userDb ) {
             console.log( 'user Not found' )
-            res.status( 404 ).send( 'user Not found in DB' )
+            return res.status( 404 ).send( 'user Not found in DB' )
         }
         // console.log( userDb )
         const isValidPassword=bcrypt.compareSync( password, userDb.password ); // true
         if ( !isValidPassword ) {
             console.log( 'Password incorrect' )
-            res.status( 401 ).send( "Invalid Password" )
+            return res.status( 401 ).send( "Invalid Password" )
         }
         req.session.userSession={ Userid: userDb._id, name: userDb.email } //used to store session ID in userSession in req.session
 
@@ -42,10 +42,10 @@ const userLogin=async ( req, res ) => {
         // console.log("User Logg")
         //    const userNameDB = await mongodb.findOne( { email: email } ).exec();
         // console.log( userDb.email )
-        res.send( { message: "User Logged In Successfully", username: userDb.email } );
+        return res.send( { message: "User Logged In Successfully", username: userDb.email } );
     } catch ( err ) {
         console.log( err );
-        res.status( 500 ).send( 'Internal server error in password' )
+        return res.status( 500 ).send( 'Internal server error in password' )
     }
 }
 
@@ -70,4 +70,21 @@ const logout=async ( req, res ) => {
     } )
 }
 
-module.exports={ userRegister, userLogin, allUserProfile, logout }
+const sessionData=async ( req, res ) => {
+
+    try {
+        if ( req.session.userSession ) {
+            console.log( req.session )
+            res.send( req.session.userSession );
+        } else {
+            res.status( 401 ).send( { error: 'Not authenticated' } );
+        }
+
+    }
+    catch ( error ) {
+        res.status( 500 ).send( "Error while fecthing session data from userSession" )
+    }
+
+}
+
+module.exports={ userRegister, userLogin, allUserProfile, logout, sessionData }

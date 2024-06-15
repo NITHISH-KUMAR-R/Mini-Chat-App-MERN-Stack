@@ -3,20 +3,24 @@ const userModel=require( '../Schema/userData' )
 const friendReqModel=require( '../Schema/friendRequestSchema' )
 
 
-const displayAllFriends=async ( req, res ) => {
-
-    const user_id=req.session.userSession.Userid;
+const displayAllFriends = async (req, res) => {
+    const user_id = req.session.userSession.Userid;
     try {
-        const friendListt=await friendModel.findOne( { userid: user_id } ).exec();
-        const friendNames=friendListt.friendList.map( f => f.fName )
-        console.log( friendNames )
-        res.send( friendNames )
-    }
-    catch ( err ) {
-        console.log( err )
-        res.status( 500 ).send( "Internal Server error while fetching all friend for session user" )
+        const friendListt = await friendModel.findOne({ userid: user_id }).exec();
+        if (friendListt && friendListt.friendList) {
+            const friendNames = friendListt.friendList.map(f => f.fName);
+            console.log(friendNames);
+            res.send(friendListt.friendList);
+        } else {
+            // Handle the case when the friend list is null or empty
+            res.send([]);
+        }
+    } catch (err) {
+        console.log(err);
+        res.status(500).send("Internal Server error while fetching all friend for session user");
     }
 }
+
 
 
 
@@ -98,39 +102,96 @@ const addingAcceptedFriendlist = async (accepterId, requestedId) => {
 
 
 
+const acceptFriend = async (req, res) => {
+    const accepterReceiverId = req.session.userSession.Userid;
+    const requestId = req.params.reqId;
 
-const acceptFriend=async ( req, res ) => {
-    const accepter_RecieverId=req.session.userSession.Userid;
-    const requestedId=req.params.reqId;
-  //  console.log( "AccepterId", accepter_RecieverId )
-  //  console.log( "requestedId", requestedId )
     try {
-            const existingRequest = await friendReqModel.findOne({
-            sender: requestedId,
-            receiver: accepter_RecieverId,
+        const existingRequest = await friendReqModel.findOne({
+            _id: requestId,
+            receiver: accepterReceiverId,
             status: { $in: ['pending', 'accepted'] }
-        }).exec();
+        }).populate('sender').exec();
 
-        if (existingRequest) {
-            // If there's already a pending or accepted request, return without further processing
-            return res.status(400).send("Friend request already exists and accepeted it");
+        if (!existingRequest) {
+            return res.status(404).send("Friend request not found or already accepted");
         }
-        await ( addingAcceptedFriendlist( accepter_RecieverId, requestedId ) );
-        await friendReqModel.findOneAndUpdate(
-            { sender: requestedId, receiver: accepter_RecieverId, status: 'pending' }, 
-            { status: 'accepted' }
-        );
-        return res.send( "FriendList Added to Both user Successfully" )
 
-    } catch ( err ) {
-        console.log( err );
-        res.status( 500 ).send( "Error Accepting friend request" )
+        if (existingRequest.status === 'accepted') {
+            return res.status(400).send("Friend request already accepted");
+        }
+
+        // Update the status of the friend request to 'accepted'
+        existingRequest.status = 'accepted';
+        await existingRequest.save();
+
+        // Perform logic to add friend to both users' friend lists if needed
+        await addingAcceptedFriendlist(existingRequest.sender._id, existingRequest.receiver);
+
+        return res.send("Friend request accepted successfully");
+    } catch (err) {
+        console.error("Error accepting friend request:", err);
+        return res.status(500).send("Error accepting friend request");
     }
+};
 
 
-}
+const receivedRequestForLoggedInUser = async (req, res) => {
+    const userId = req.session.userSession.Userid;
 
-module.exports={ displayAllFriends, sendFriendRequest, acceptFriend }
+    try {
+        // Find all pending friend requests where the logged-in user is the receiver
+        const receivedRequests = await friendReqModel.find({ receiver: userId, status: 'pending' })
+            .populate('sender', 'username email'); // Populate sender details (name and email)
+
+        // Format the response to include senderName and senderEmail
+        const formattedRequests = receivedRequests.map(request => ({
+            _id: request._id,
+            senderName: request.sender.username,
+            senderEmail: request.sender.email,
+        }));
+
+        // Respond with formatted requests
+        res.json(formattedRequests);
+    } catch (error) {
+        console.error('Error fetching received requests:', error);
+        res.status(500).send('Error fetching received requests');
+    }
+};
+
+
+const showUnknownUsers = async (req, res) => {
+    const userId = req.session.userSession.Userid;
+
+    try {
+        // Fetch all users from the database
+        const allUsers = await userModel.find().lean().exec();
+
+        // Fetch friend list of the logged-in user
+        const friendList = await friendModel.findOne({ userid: userId }).lean().exec();
+
+        if (!friendList || !friendList.friendList || friendList.friendList.length === 0) {
+            // If no friend list found or friend list is empty, return all users except the logged-in user
+            const unknownUsers = allUsers.filter(user => user._id.toString() !== userId);
+            res.json(unknownUsers);
+            return;
+        }
+
+        // Extract user IDs from friend list
+        const friendIds = friendList.friendList.map(friend => friend.user_id.toString()); // Convert to string for comparison
+
+        // Filter out users who are already friends or the logged-in user
+        const unknownUsers = allUsers.filter(user => !friendIds.includes(user._id.toString()) && user._id.toString() !== userId);
+
+        res.json(unknownUsers);
+    } catch (error) {
+        console.error('Error fetching unknown users:', error);
+        res.status(500).send('Internal Server Error');
+    }
+};
+
+
+module.exports={ displayAllFriends, sendFriendRequest, acceptFriend,receivedRequestForLoggedInUser ,showUnknownUsers}
 
 
 

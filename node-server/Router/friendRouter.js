@@ -11,5 +11,7 @@ friendRoute.get( '/all', middleware.verifySession, friendController.displayAllFr
 friendRoute.post( '/req/:recieverId', middleware.verifySession, friendController.sendFriendRequest )
 // friendRoute.post( '/accFrndreq/:reqId', middleware.verifySession, friendController.acceptRequestFromSender )
 friendRoute.post( '/pending/:reqId', middleware.verifySession, friendController.acceptFriend )
+friendRoute.get( '/recievedReq', middleware.verifySession, friendController.receivedRequestForLoggedInUser )
+friendRoute.get( '/unkownuser', middleware.verifySession, friendController.showUnknownUsers )
 
 module.exports=friendRoute

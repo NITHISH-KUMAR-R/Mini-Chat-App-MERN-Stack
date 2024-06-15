@@ -9,6 +9,7 @@ const usersPostSchema=new Schema( {
         userPost: { type: String },
         likes: { type: Number, default: 1 }, // Number of likes for this post
         disLikes: { type: Number, default: 1 },
+        date: { type: Date, default: Date.now }
     }],
 
     date: { type: Date, default: Date.now } // Assuming 'Date' is the field for the creation date

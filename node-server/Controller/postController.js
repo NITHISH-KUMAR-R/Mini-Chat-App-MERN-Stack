@@ -52,22 +52,56 @@ const geloginUserPost=async ( req, res ) => {
     }
 }
 
+// const allUserPost=async ( req, res ) => {
+//     console.log( "hello" )
+//     try {
+//         const postDatabse=await postModel.find().exec();
+//         const messages=postDatabse.map( p => p.messagesList ).flat()
+//         messages.forEach( post => {
+//             console.log( "User Post:", post.userPost );
+//             console.log( "_id:", post._id );
+//             // Do whatever you need with the post datas
+//         } );
+
+//         //console.log( messages )
+//         res.send( messages )
+
+//     } catch ( err ) {
+//         res.status( 500 ).send( "Internal Server Error" )
+//     }
+// }
 const allUserPost=async ( req, res ) => {
-    console.log( "hello" )
+
     try {
-        const postDatabse=await postModel.find().exec();
-        const messages=postDatabse.map( p => p.messagesList ).flat()
-        messages.forEach( post => {
-            console.log( "User Post:", post.userPost );
-            console.log( "_id:", post._id );
-            // Do whatever you need with the post datas
-        } );
-
-        //console.log( messages )
-        res.send( messages )
-
+        const postDatabase=await postModel.find().exec();
+        res.send( postDatabase ); // Sending the entire post array
     } catch ( err ) {
-        res.status( 500 ).send( "Internal Server Error" )
+        res.status( 500 ).send( "Internal Server Error" );
     }
-}
-module.exports={ userPost, geloginUserPost, allUserPost }
+};
+
+
+const deleteUserPost=async ( req, res ) => {
+    const postId=req.params.id; // Assuming postId is passed as a URL parameter
+
+    try {
+        console.log( postId )
+        // Find the post by postId and remove it from messagesList
+        const post=await postModel.findOneAndUpdate(
+            { 'messagesList._id': postId }, // Find the post with this specific messageId
+            { $pull: { messagesList: { _id: postId } } }, // Pull the specific message from messagesList
+            { new: true } // Return the updated document
+        );
+
+        if ( !post ) {
+            return res.status( 404 ).send( "Post not found" );
+        }
+
+        res.status( 200 ).send( "Post deleted successfully" );
+    } catch ( err ) {
+        console.error( err );
+        res.status( 500 ).send( "Internal Server Error" );
+    }
+};
+
+module.exports={ userPost, geloginUserPost, allUserPost, deleteUserPost }

@@ -8,6 +8,23 @@ const session=require( 'express-session' );
 const MongoStore=require( 'connect-mongo' );
 const fs=require( 'fs' );
 const crypto=require( 'crypto' );
+const cors=require( 'cors' );
+
+
+require( 'dotenv' ).config();
+
+const app=express();
+app.use( express.json() );
+const corsOptions={
+    origin: 'http://localhost:3000',
+    credentials: true
+};
+
+app.use( cors( corsOptions ) );
+
+// Additional CORS configurations as needed
+
+
 
 // Read existing contents of .env file
 let envContents='';
@@ -28,21 +45,22 @@ if ( !envContents.includes( 'SESSION_SECRET_KEY' ) ) {
 } else {
     console.log( 'SESSION_SECRET_KEY already exists in .env file. Skipping generation.' );
 }
-require( 'dotenv' ).config();
-
-const app=express();
-app.use( express.json() );
 
 
 app.use( session( {
     secret: process.env.SESSION_SECRET_KEY,
-    saveUninitialized: false, // don't create session until something stored
-    resave: false, //don't save session if unmodified
+    saveUninitialized: false,
+    resave: false,
     store: MongoStore.create( {
         mongoUrl: process.env.MONGO_URI,
-        touchAfter: 24*3600, // time period in seconds
         dbName: 'project-session-db'
-    } )
+    } ),
+    cookie: {
+        // maxAge: 5*60*1000, // 5 minutes in milliseconds
+        httpOnly: true, // Recommended to prevent client-side JS from accessing the cookie
+        secure: process.env.NODE_ENV==='production', // Recommended to ensure cookies are sent over HTTPS
+        //     sameSite: 'strict' // Recommended to mitigate CSRF attacks
+    }
 } ) );
 
 mongoose.set( 'strictQuery', false );
